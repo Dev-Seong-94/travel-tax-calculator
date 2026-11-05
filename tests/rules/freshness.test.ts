@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findStaleRules } from "@/rules/freshness";
 import { JP_REFUND_RULES } from "@/rules/jp-refund";
+import { KR_CUSTOMS_RULES } from "@/rules/kr-customs";
 
 const rule = {
   id: "example",
@@ -21,9 +22,9 @@ describe("findStaleRules", () => {
   });
 });
 
-describe("JP_REFUND_RULES", () => {
+describe("rule data", () => {
   it("records a source and verification date for every rule", () => {
-    for (const item of JP_REFUND_RULES) {
+    for (const item of [...JP_REFUND_RULES, ...KR_CUSTOMS_RULES]) {
       expect(item.sourceId, item.id).toMatch(/^S\d+$/);
       expect(item.lastVerified, item.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
