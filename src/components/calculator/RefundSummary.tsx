@@ -1,4 +1,10 @@
-import { formatNumber, type CalculatorSummary } from "@/state/calculator";
+import {
+  formatNumber,
+  type CalculatorState,
+  type CalculatorSummary,
+  type RateInputs,
+} from "@/state/calculator";
+import { RateInput } from "./RateInput";
 import { fieldClass, labelClass } from "./field-styles";
 
 const OFFICIAL_GUIDE_URL =
@@ -8,12 +14,26 @@ type RefundSummaryProps = {
   summary: CalculatorSummary;
   feeInput: string;
   onFeeChange: (feeInput: string) => void;
+  rateInputs: Pick<CalculatorState, keyof RateInputs>;
+  onRateChange: (changes: Partial<RateInputs>) => void;
+  onRateReset: () => void;
 };
+
+function Won({ value }: { value: number }) {
+  return (
+    <span className="block text-right text-sm font-normal text-muted">
+      약 ₩{formatNumber(value)}
+    </span>
+  );
+}
 
 export function RefundSummary({
   summary,
   feeInput,
   onFeeChange,
+  rateInputs,
+  onRateChange,
+  onRateReset,
 }: RefundSummaryProps) {
   const hasFee = summary.totalExpectedRefundYen !== summary.totalMaxRefundYen;
 
@@ -29,7 +49,10 @@ export function RefundSummary({
       <dl className="mt-3 space-y-2" aria-live="polite">
         <div className="flex items-baseline justify-between gap-4">
           <dt className="text-sm text-muted">총 결제액</dt>
-          <dd>¥{formatNumber(summary.totalPaidYen)}</dd>
+          <dd className="text-right">
+            ¥{formatNumber(summary.totalPaidYen)}
+            <Won value={summary.totalPaidKrw} />
+          </dd>
         </div>
         <div className="flex items-baseline justify-between gap-4">
           <dt className="text-sm text-muted">환급 조건 충족</dt>
@@ -37,15 +60,17 @@ export function RefundSummary({
         </div>
         <div className="flex items-baseline justify-between gap-4 border-t border-border pt-2">
           <dt className="text-sm font-medium">최대 환급액</dt>
-          <dd className="text-2xl font-bold text-accent">
+          <dd className="text-right text-2xl font-bold text-accent">
             ¥{formatNumber(summary.totalMaxRefundYen)}
+            <Won value={summary.totalMaxRefundKrw} />
           </dd>
         </div>
         {hasFee && (
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-sm font-medium">수수료 뺀 예상 환급액</dt>
-            <dd className="font-semibold">
+            <dd className="text-right font-semibold">
               ¥{formatNumber(summary.totalExpectedRefundYen)}
+              <Won value={summary.totalExpectedRefundKrw} />
             </dd>
           </div>
         )}
@@ -73,6 +98,13 @@ export function RefundSummary({
           </p>
         )}
       </div>
+
+      <RateInput
+        rates={summary.rates}
+        inputs={rateInputs}
+        onChange={onRateChange}
+        onReset={onRateReset}
+      />
 
       <div className="mt-4 space-y-2 text-sm text-muted">
         <p>

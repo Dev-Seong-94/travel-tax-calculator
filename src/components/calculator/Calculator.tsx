@@ -107,6 +107,9 @@ export function Calculator() {
         summary={summary}
         feeInput={state.feeInput}
         onFeeChange={(feeInput) => dispatch({ type: "setFee", feeInput })}
+        rateInputs={state}
+        onRateChange={(changes) => dispatch({ type: "setRate", changes })}
+        onRateReset={() => dispatch({ type: "resetRates" })}
       />
     </fieldset>
   );

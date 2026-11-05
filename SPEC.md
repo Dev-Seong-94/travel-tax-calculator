@@ -117,7 +117,7 @@
 - 호스팅: Cloudflare 무료 플랜 (상업적 이용 약관은 수익화 전에 확인)
 - 테스트: Vitest (계산), Playwright (주요 흐름)
 - 저장: 입력값은 `localStorage`, 공유 링크는 URL 해시에 품목 값만 인코딩
-- 환율: 빌드 시 JSON으로 갱신, 사용자가 직접 수정 가능
+- 환율: `src/data/rates.json`에 기준일과 출처를 저장하고 `npm run rates:update`로 갱신, 사용자가 직접 수정 가능. 7일 넘게 지나면 경고
 
 ## 5. 명령어
 
@@ -127,6 +127,7 @@ npm run build
 npm run lint
 npm test
 npm run test:e2e
+npm run rates:update
 ```
 
 ## 6. 프로젝트 구조
@@ -196,7 +197,7 @@ export function maxRefundYen(priceIncTax: number, taxRate: number): number {
 1. **입국 시 환급 증빙:** 일본 환급이 입국 후 입금되거나 증빙이 없으면 결제액 전체로 과세되는가? 관세청 125 문의 대상이다.
 2. **간이세율 원문 대조:** 2026-02-27 개정(대통령령 제36140호) 이후 별표 2 원문이 관세청 조회 시스템 값과 같은지 확인한다.
 3. **대조 범위:** 28개 사례가 관세청 결과와 일치한다. 입력 화면 대조는 1건이며, 환급 증빙 공제와 `계산 불가` 품목은 공식 결과로 대조하지 못한다.
-4. **환율 데이터:** 관세청 화면은 과세환율(2026-11-05 확인 시 1달러 1,328.56원, 1엔 8.4305원)을 표시하지만 스크립트 기본값(1,421.65원)과 다르고 공식 제공 방식도 아니다. 자동 수집 가능 여부와 이용 조건을 Task 7에서 확인하고, 어렵다면 시장 환율을 쓰고 차이를 안내한다.
+4. **환율 데이터:** 기본값은 2026-11-05에 화면에서 확인한 관세청 과세환율이다. 공식 경로는 공공데이터포털 관세청_관세환율정보 API이며 인증키 발급 후 연결한다. 그 전까지 `npm run rates:update`는 Frankfurter 시장 환율로 갱신하며 차이를 안내한다.
 5. **사이트 이름과 도메인:** 사용자 결정 필요.
 6. **Cloudflare 상업적 이용:** 광고를 붙이기 전에 약관을 확인한다.
 
@@ -217,3 +218,5 @@ export function maxRefundYen(priceIncTax: number, taxRate: number): number {
 - S11. [일본 국세청: 소비세 세율 (No.6303)](https://www.nta.go.jp/taxes/shiraberu/taxanswer/shohi/6303.htm)
 - S12. [일본 국세청: 음식료품 2년간 세율 인하 Q&A (2026년 9월판)](https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/0026008-127_qa.pdf)
 - S13. [관세청: 여행자 휴대품 예상세액 계산 스크립트](https://www.customs.go.kr/js/web/kcs/expcXamtCalculation.js?v1.1) (조회 시스템이 쓰는 품목별 세율과 계산 순서)
+- S14. [공공데이터포털: 관세청_관세환율정보](https://data.go.kr/data/15101230/openapi.do)
+- S15. [Frankfurter 환율 API](https://frankfurter.dev/)

@@ -204,3 +204,61 @@ describe("deriveSummary", () => {
     expect(summary.totalExpectedRefundYen).toBe(1000);
   });
 });
+
+describe("exchange rates", () => {
+  it("starts from the bundled rates and converts totals to won", () => {
+    const summary = deriveSummary(stateWithItem("5500"), TODAY);
+
+    expect(summary.rates).toMatchObject({
+      valid: true,
+      edited: false,
+      jpyKrw: 8.4305,
+      usdKrw: 1328.56,
+    });
+    expect(summary.totalPaidKrw).toBe(46368);
+    expect(summary.totalMaxRefundKrw).toBe(4215);
+    expect(summary.totalExpectedRefundKrw).toBe(4215);
+  });
+
+  it("uses an edited rate per 100 yen", () => {
+    const state = calculatorReducer(stateWithItem("5500"), {
+      type: "setRate",
+      changes: { jpyPer100Input: "900" },
+    });
+
+    const summary = deriveSummary(state, TODAY);
+
+    expect(summary.rates).toMatchObject({ edited: true, jpyKrw: 9 });
+    expect(summary.totalPaidKrw).toBe(49500);
+  });
+
+  it("falls back to the bundled rate when an edit is invalid", () => {
+    const state = calculatorReducer(stateWithItem("5500"), {
+      type: "setRate",
+      changes: { usdInput: "abc" },
+    });
+
+    const summary = deriveSummary(state, TODAY);
+
+    expect(summary.rates).toMatchObject({ valid: false, usdKrw: 1328.56 });
+  });
+
+  it("restores the bundled rates", () => {
+    let state = calculatorReducer(stateWithItem("5500"), {
+      type: "setRate",
+      changes: { jpyPer100Input: "900", usdInput: "1500" },
+    });
+    state = calculatorReducer(state, { type: "resetRates" });
+
+    expect(deriveSummary(state, TODAY).rates).toMatchObject({
+      edited: false,
+      jpyKrw: 8.4305,
+    });
+  });
+
+  it("flags a stale bundled rate", () => {
+    const summary = deriveSummary(stateWithItem("5500"), "2027-01-01");
+
+    expect(summary.rates.stale).toBe(true);
+  });
+});

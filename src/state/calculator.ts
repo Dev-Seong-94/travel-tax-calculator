@@ -1,3 +1,9 @@
+import bundledRates from "@/data/rates.json";
+import {
+  isRateStale,
+  parseRateInput,
+  yenToKrw,
+} from "@/domain/exchange-rate";
 import {
   calculatePurchaseRefund,
   jpTaxRatePercent,
@@ -44,8 +50,12 @@ export type StoreDraft = {
 export type CalculatorState = {
   nextId: number;
   feeInput: string;
+  jpyPer100Input: string;
+  usdInput: string;
   stores: StoreDraft[];
 };
+
+export type RateInputs = Pick<CalculatorState, "jpyPer100Input" | "usdInput">;
 
 export type CalculatorAction =
   | { type: "addStore" }
@@ -63,7 +73,9 @@ export type CalculatorAction =
       itemId: string;
       changes: Partial<Pick<ItemDraft, "priceInput" | "category">>;
     }
-  | { type: "setFee"; feeInput: string };
+  | { type: "setFee"; feeInput: string }
+  | { type: "setRate"; changes: Partial<RateInputs> }
+  | { type: "resetRates" };
 
 const MAX_PRICE_YEN = 999_999_999;
 
@@ -105,8 +117,18 @@ function createStore(storeId: number, itemId: number): StoreDraft {
   };
 }
 
+const DEFAULT_RATE_INPUTS: RateInputs = {
+  jpyPer100Input: String(Math.round(bundledRates.jpyKrw * 10_000) / 100),
+  usdInput: String(bundledRates.usdKrw),
+};
+
 export function createInitialState(): CalculatorState {
-  return { nextId: 3, feeInput: "", stores: [createStore(1, 2)] };
+  return {
+    nextId: 3,
+    feeInput: "",
+    ...DEFAULT_RATE_INPUTS,
+    stores: [createStore(1, 2)],
+  };
 }
 
 function updateStore(
@@ -172,6 +194,10 @@ export function calculatorReducer(
       };
     case "setFee":
       return { ...state, feeInput: action.feeInput };
+    case "setRate":
+      return { ...state, ...action.changes };
+    case "resetRates":
+      return { ...state, ...DEFAULT_RATE_INPUTS };
   }
 }
 
@@ -188,12 +214,29 @@ export type StoreSummary = StoreBase &
     | { status: "calculated"; paidYen: number; refund: JpRefundResult }
   );
 
+export type RateSummary = {
+  jpyKrw: number;
+  usdKrw: number;
+  jpyValid: boolean;
+  usdValid: boolean;
+  valid: boolean;
+  edited: boolean;
+  stale: boolean;
+  asOf: string;
+  sourceLabel: string;
+  sourceUrl: string;
+};
+
 export type CalculatorSummary = {
   feeValid: boolean;
+  rates: RateSummary;
   stores: StoreSummary[];
   totalPaidYen: number;
   totalMaxRefundYen: number;
   totalExpectedRefundYen: number;
+  totalPaidKrw: number;
+  totalMaxRefundKrw: number;
+  totalExpectedRefundKrw: number;
   qualifyingStoreCount: number;
 };
 
@@ -256,6 +299,29 @@ function parseFeePercent(input: string): number | null {
   return percent <= 100 ? percent : null;
 }
 
+function summarizeRates(state: CalculatorState, today: IsoDate): RateSummary {
+  const jpyPer100 = parseRateInput(state.jpyPer100Input);
+  const usdKrw = parseRateInput(state.usdInput);
+  const edited =
+    state.jpyPer100Input !== DEFAULT_RATE_INPUTS.jpyPer100Input ||
+    state.usdInput !== DEFAULT_RATE_INPUTS.usdInput;
+  const jpyEdited = state.jpyPer100Input !== DEFAULT_RATE_INPUTS.jpyPer100Input;
+
+  return {
+    jpyKrw:
+      jpyEdited && jpyPer100 !== null ? jpyPer100 / 100 : bundledRates.jpyKrw,
+    usdKrw: usdKrw ?? bundledRates.usdKrw,
+    jpyValid: jpyPer100 !== null,
+    usdValid: usdKrw !== null,
+    valid: jpyPer100 !== null && usdKrw !== null,
+    edited,
+    stale: !edited && isRateStale(bundledRates.asOf, today),
+    asOf: bundledRates.asOf,
+    sourceLabel: bundledRates.sourceLabel,
+    sourceUrl: bundledRates.sourceUrl,
+  };
+}
+
 export function deriveSummary(
   state: CalculatorState,
   today: IsoDate,
@@ -267,10 +333,14 @@ export function deriveSummary(
 
   const summary: CalculatorSummary = {
     feeValid: feePercent !== null,
+    rates: summarizeRates(state, today),
     stores,
     totalPaidYen: 0,
     totalMaxRefundYen: 0,
     totalExpectedRefundYen: 0,
+    totalPaidKrw: 0,
+    totalMaxRefundKrw: 0,
+    totalExpectedRefundKrw: 0,
     qualifyingStoreCount: 0,
   };
   for (const store of stores) {
@@ -280,5 +350,13 @@ export function deriveSummary(
     summary.totalExpectedRefundYen += store.refund.expectedRefundYen;
     if (store.refund.meetsMinimum) summary.qualifyingStoreCount += 1;
   }
+
+  const { jpyKrw } = summary.rates;
+  summary.totalPaidKrw = yenToKrw(summary.totalPaidYen, jpyKrw);
+  summary.totalMaxRefundKrw = yenToKrw(summary.totalMaxRefundYen, jpyKrw);
+  summary.totalExpectedRefundKrw = yenToKrw(
+    summary.totalExpectedRefundYen,
+    jpyKrw,
+  );
   return summary;
 }

@@ -8,7 +8,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "prebuild": "node scripts/check-rules.mts"
+    "prebuild": "node scripts/check-rules.mts",
+    "rates:update": "node scripts/update-rates.mts"
   },
   "dependencies": {
     "next": "16.4.5",
