@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3100;
+const PORT = 4173;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -9,9 +9,9 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: `npm run build && python3 -m http.server ${PORT} --bind 127.0.0.1 --directory out`,
+    command: `npm run build && node scripts/serve-out.mjs ${PORT}`,
     url: `http://127.0.0.1:${PORT}/ko/`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });

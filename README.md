@@ -20,6 +20,6 @@ npx playwright install chromium
 
 ## 출력
 
-`npm run build`는 `out/`에 정적 파일을 만듭니다. E2E는 이 빌드 결과를 로컬 서버로 띄워 검사합니다.
+`npm run build`는 `out/`에 정적 파일을 만듭니다. E2E는 이 빌드 결과를 `scripts/serve-out.mjs`로 4173번 포트에 띄워 검사합니다.
 
 `public/_redirects`는 호스팅 단계의 루트 이동 규칙입니다. 이 규칙이 적용되지 않는 환경에서는 루트 페이지의 meta refresh로 이동합니다.

@@ -1,13 +1,13 @@
 import type { Rule } from "./types";
 
 const VERIFIED = "2026-11-05";
-const REFUND_SCHEME_START = "2026-11-01";
+export const JP_REFUND_SCHEME_START = "2026-11-01";
 
 export const JP_MIN_PURCHASE_EX_TAX: Rule<number> = {
   id: "jp-min-purchase-ex-tax",
   value: 5000,
   unit: "JPY",
-  effectiveFrom: REFUND_SCHEME_START,
+  effectiveFrom: JP_REFUND_SCHEME_START,
   sourceId: "S3",
   lastVerified: VERIFIED,
 };
@@ -18,7 +18,7 @@ export const JP_TAX_RATES = {
       id: "jp-tax-standard",
       value: 10,
       unit: "percent",
-      effectiveFrom: REFUND_SCHEME_START,
+      effectiveFrom: JP_REFUND_SCHEME_START,
       sourceId: "S11",
       lastVerified: VERIFIED,
     },
@@ -28,7 +28,7 @@ export const JP_TAX_RATES = {
       id: "jp-tax-reduced",
       value: 8,
       unit: "percent",
-      effectiveFrom: REFUND_SCHEME_START,
+      effectiveFrom: JP_REFUND_SCHEME_START,
       effectiveTo: "2027-03-31",
       sourceId: "S11",
       lastVerified: VERIFIED,
