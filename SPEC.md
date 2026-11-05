@@ -48,7 +48,7 @@
 | 대상자 | 외국 국적 비거주자 중 단기 체류 등, 또는 해외 2년 이상 거주가 확인된 일본 국적 비거주자 | 확인 | S3 |
 | 환급 수단과 시기 | 매장마다 다름 | 확인 | S2, S4 |
 | 수수료 | 부담 주체를 정한 규정 없음. 매장이나 대행사마다 다를 수 있음 | 확인 | S4 |
-| 세율 | 일반 10%, 경감세율 음식료품 8% (주류 제외) | 경감 대상은 확인, 세율 수치는 일본 국세청 일반 안내로 확인 필요 | S3 |
+| 세율 | 일반 10%, 음식료품(주류 제외) 8%, 2027-04-01~2029-03-31 구매분 음식료품 1%. 2029-04-01 이후 음식료품은 미정이라 계산하지 않음 | 확인 | S11, S12 |
 
 계산식:
 
@@ -147,14 +147,15 @@ e2e/                 Playwright 테스트
 
 ```ts
 export const JP_MIN_PURCHASE_EX_TAX: Rule<number> = {
+  id: "jp-min-purchase-ex-tax",
   value: 5000,
   unit: "JPY",
   effectiveFrom: "2026-11-01",
-  sourceId: "S1",
+  sourceId: "S3",
   lastVerified: "2026-11-05",
 };
 
-export function maxRefundYen(priceIncTax: number, taxRate: 8 | 10): number {
+export function maxRefundYen(priceIncTax: number, taxRate: number): number {
   return Math.floor((priceIncTax * taxRate) / (100 + taxRate));
 }
 ```
@@ -213,3 +214,5 @@ export function maxRefundYen(priceIncTax: number, taxRate: 8 | 10): number {
 - S8. [국가법령정보센터: 관세법 시행령 개정 이력](https://www.law.go.kr/LSW/lsRvsDocListP.do?lsId=002421&chrClsCd=010102)
 - S9. [관세청: 해외직구물품 예상세액 조회](https://www.customs.go.kr/kcs/ad/tax/BuyTaxCalculation.do?mi=2853)
 - S10. [관세청: 여행자 휴대품 통관 길라잡이 (2025-03-21판 추정, 제3자 사이트 사본)](https://japanharu.net/wp-content/uploads/2025/05/%EC%97%AC%ED%96%89%EC%9E%90-%ED%9C%B4%EB%8C%80%ED%92%88-%ED%86%B5%EA%B4%80-%EA%B8%B8%EB%9D%BC%EC%9E%A1%EC%9D%B4250321.pdf) (관세청 공식 사본으로 다시 확인 필요)
+- S11. [일본 국세청: 소비세 세율 (No.6303)](https://www.nta.go.jp/taxes/shiraberu/taxanswer/shohi/6303.htm)
+- S12. [일본 국세청: 음식료품 2년간 세율 인하 Q&A (2026년 9월판)](https://www.nta.go.jp/taxes/shiraberu/zeimokubetsu/shohi/keigenzeiritsu/pdf/0026008-127_qa.pdf)

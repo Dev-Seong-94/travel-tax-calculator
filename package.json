@@ -7,7 +7,8 @@
     "build": "next build",
     "lint": "eslint",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "prebuild": "node scripts/check-rules.mts"
   },
   "dependencies": {
     "next": "16.4.5",
@@ -28,5 +29,6 @@
   },
   "volta": {
     "node": "24.14.0"
-  }
+  },
+  "type": "module"
 }
