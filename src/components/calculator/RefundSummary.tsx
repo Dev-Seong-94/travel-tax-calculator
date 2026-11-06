@@ -40,7 +40,7 @@ export function RefundSummary({
   return (
     <section
       aria-labelledby="refund-summary-heading"
-      className="rounded border border-border bg-surface p-4 lg:sticky lg:top-4"
+      className="rounded border border-border bg-surface p-4"
     >
       <h2 id="refund-summary-heading" className="font-semibold">
         환급 결과

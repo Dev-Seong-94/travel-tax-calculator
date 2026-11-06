@@ -6,6 +6,8 @@ import {
   createInitialState,
   deriveSummary,
 } from "@/state/calculator";
+import { CustomsSummary } from "./CustomsSummary";
+import { NetCostSummary } from "./NetCostSummary";
 import { RefundSummary } from "./RefundSummary";
 import { StoreEditor } from "./StoreEditor";
 import { secondaryButtonClass } from "./field-styles";
@@ -30,6 +32,10 @@ export function Calculator() {
   const today = useSyncExternalStore(subscribeToNothing, getLocalToday, () => "");
   const isReady = today !== "";
   const summary = deriveSummary(state, today);
+  const invalidVolumeItemIds =
+    summary.customs.status === "needs-volume"
+      ? summary.customs.invalidVolumeItemIds
+      : [];
 
   const storesRef = useRef<HTMLDivElement>(null);
   const addStoreRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +53,7 @@ export function Calculator() {
   return (
     <fieldset
       disabled={!isReady}
-      className="mt-6 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"
+      className="mt-6 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]"
     >
       {!isReady && (
         <p role="status" className="text-sm text-muted lg:col-span-2">
@@ -79,6 +85,7 @@ export function Calculator() {
               summary={summary.stores.find(
                 ({ storeId }) => storeId === store.id,
               )}
+              invalidVolumeItemIds={invalidVolumeItemIds}
               dispatch={dispatch}
               onRemove={() => {
                 dispatch({ type: "removeStore", storeId: store.id });
@@ -103,14 +110,27 @@ export function Calculator() {
         </button>
       </section>
 
-      <RefundSummary
-        summary={summary}
-        feeInput={state.feeInput}
-        onFeeChange={(feeInput) => dispatch({ type: "setFee", feeInput })}
-        rateInputs={state}
-        onRateChange={(changes) => dispatch({ type: "setRate", changes })}
-        onRateReset={() => dispatch({ type: "resetRates" })}
-      />
+      <div className="min-w-0 space-y-4">
+        <NetCostSummary summary={summary} />
+        <RefundSummary
+          summary={summary}
+          feeInput={state.feeInput}
+          onFeeChange={(feeInput) => dispatch({ type: "setFee", feeInput })}
+          rateInputs={state}
+          onRateChange={(changes) => dispatch({ type: "setRate", changes })}
+          onRateReset={() => dispatch({ type: "resetRates" })}
+        />
+        <CustomsSummary
+          customs={summary.customs}
+          usdKrw={summary.rates.usdKrw}
+          hasRefundProof={state.hasRefundProof}
+          isMinor={state.isMinor}
+          onRefundProofChange={(hasRefundProof) =>
+            dispatch({ type: "setRefundProof", hasRefundProof })
+          }
+          onMinorChange={(isMinor) => dispatch({ type: "setMinor", isMinor })}
+        />
+      </div>
     </fieldset>
   );
 }

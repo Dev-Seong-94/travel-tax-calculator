@@ -14,6 +14,7 @@ type StoreEditorProps = {
   position: number;
   today: string;
   summary?: StoreSummary;
+  invalidVolumeItemIds: string[];
   dispatch: (action: CalculatorAction) => void;
   onRemove: () => void;
 };
@@ -23,6 +24,7 @@ export function StoreEditor({
   position,
   today,
   summary,
+  invalidVolumeItemIds,
   dispatch,
   onRemove,
 }: StoreEditorProps) {
@@ -113,6 +115,7 @@ export function StoreEditor({
               item={item}
               position={index + 1}
               invalid={invalidItemIds.includes(item.id)}
+              invalidVolume={invalidVolumeItemIds.includes(item.id)}
               onChange={(changes) =>
                 dispatch({
                   type: "updateItem",

@@ -10,7 +10,13 @@ import {
   type JpRefundResult,
   type JpTaxClass,
 } from "@/domain/jp-refund";
-import type { KrGoodsCategory } from "@/domain/kr-customs";
+import {
+  calculateKrCustoms,
+  type KrBottle,
+  type KrCustomsResult,
+  type KrGoods,
+  type KrGoodsCategory,
+} from "@/domain/kr-customs";
 import { JP_REFUND_SCHEME_START } from "@/rules/jp-refund";
 import type { IsoDate } from "@/rules/types";
 
@@ -37,6 +43,8 @@ export type ItemDraft = {
   id: string;
   priceInput: string;
   category: ItemCategory;
+  /** Only used for alcohol and perfume. */
+  mlInput: string;
 };
 
 export type StoreDraft = {
@@ -52,6 +60,8 @@ export type CalculatorState = {
   feeInput: string;
   jpyPer100Input: string;
   usdInput: string;
+  hasRefundProof: boolean;
+  isMinor: boolean;
   stores: StoreDraft[];
 };
 
@@ -71,11 +81,13 @@ export type CalculatorAction =
       type: "updateItem";
       storeId: string;
       itemId: string;
-      changes: Partial<Pick<ItemDraft, "priceInput" | "category">>;
+      changes: Partial<Pick<ItemDraft, "priceInput" | "category" | "mlInput">>;
     }
   | { type: "setFee"; feeInput: string }
   | { type: "setRate"; changes: Partial<RateInputs> }
-  | { type: "resetRates" };
+  | { type: "resetRates" }
+  | { type: "setRefundProof"; hasRefundProof: boolean }
+  | { type: "setMinor"; isMinor: boolean };
 
 const MAX_PRICE_YEN = 999_999_999;
 
@@ -105,7 +117,7 @@ export function formatYenInput(input: string): string {
 }
 
 function createItem(id: number): ItemDraft {
-  return { id: `item-${id}`, priceInput: "", category: "other" };
+  return { id: `item-${id}`, priceInput: "", category: "other", mlInput: "" };
 }
 
 function createStore(storeId: number, itemId: number): StoreDraft {
@@ -127,6 +139,8 @@ export function createInitialState(): CalculatorState {
     nextId: 3,
     feeInput: "",
     ...DEFAULT_RATE_INPUTS,
+    hasRefundProof: false,
+    isMinor: false,
     stores: [createStore(1, 2)],
   };
 }
@@ -198,6 +212,10 @@ export function calculatorReducer(
       return { ...state, ...action.changes };
     case "resetRates":
       return { ...state, ...DEFAULT_RATE_INPUTS };
+    case "setRefundProof":
+      return { ...state, hasRefundProof: action.hasRefundProof };
+    case "setMinor":
+      return { ...state, isMinor: action.isMinor };
   }
 }
 
@@ -227,9 +245,27 @@ export type RateSummary = {
   sourceUrl: string;
 };
 
+export type CustomsSummary =
+  | { status: "empty" }
+  | { status: "needs-volume"; invalidVolumeItemIds: string[] }
+  | {
+      status: "ready";
+      result: KrCustomsResult;
+      dependsOnRefundProof: boolean;
+      excludedStoreCount: number;
+      hasFood: boolean;
+      hasAlcohol: boolean;
+      hasPerfume: boolean;
+    };
+
 export type CalculatorSummary = {
   feeValid: boolean;
   rates: RateSummary;
+  customs: CustomsSummary;
+  /** Paid minus the expected refund, before any customs tax. */
+  netCostBeforeTaxKrw: number;
+  /** Null until the tax is known. */
+  netCostKrw: number | null;
   stores: StoreSummary[];
   totalPaidYen: number;
   totalMaxRefundYen: number;
@@ -299,6 +335,99 @@ function parseFeePercent(input: string): number | null {
   return percent <= 100 ? percent : null;
 }
 
+export function isVolumeRequired(category: ItemCategory): boolean {
+  return category === "alcohol" || category === "perfume";
+}
+
+function parseVolumeInput(input: string): number | null {
+  const normalized = input.replace(/[,\s]/g, "");
+  if (!/^\d+$/.test(normalized)) return null;
+  const ml = Number(normalized);
+  return ml > 0 && Number.isSafeInteger(ml) ? ml : null;
+}
+
+function summarizeCustoms(
+  state: CalculatorState,
+  stores: StoreSummary[],
+  rates: RateSummary,
+  feePercent: number,
+): CustomsSummary {
+  const goods: KrGoods[] = [];
+  const alcohol: KrBottle[] = [];
+  const perfume: KrBottle[] = [];
+  const invalidVolumeItemIds: string[] = [];
+  let isMissingVolume = false;
+  let hasFood = false;
+
+  for (const summary of stores) {
+    if (summary.status !== "calculated") continue;
+    const draft = state.stores.find(({ id }) => id === summary.storeId);
+
+    for (const item of draft?.items ?? []) {
+      const price = parseYenInput(item.priceInput);
+      if (price.status !== "valid") continue;
+
+      const taxRate = jpTaxRatePercent(
+        jpTaxClass(item.category),
+        summary.purchaseDate,
+      );
+      const refundYen = summary.refund.meetsMinimum
+        ? Math.floor(
+            (((price.yen * taxRate) / (100 + taxRate)) * (100 - feePercent)) /
+              100,
+          )
+        : 0;
+      const priced = {
+        paidKrw: yenToKrw(price.yen, rates.jpyKrw),
+        refundKrw: yenToKrw(refundYen, rates.jpyKrw),
+      };
+
+      if (item.category !== "alcohol" && item.category !== "perfume") {
+        hasFood ||= item.category === "food";
+        goods.push({ ...priced, category: item.category });
+        continue;
+      }
+
+      const ml = parseVolumeInput(item.mlInput);
+      if (ml === null) {
+        isMissingVolume = true;
+        if (item.mlInput.trim() !== "") invalidVolumeItemIds.push(item.id);
+        continue;
+      }
+      (item.category === "alcohol" ? alcohol : perfume).push({ ...priced, ml });
+    }
+  }
+
+  if (isMissingVolume) return { status: "needs-volume", invalidVolumeItemIds };
+  if (goods.length + alcohol.length + perfume.length === 0) {
+    return { status: "empty" };
+  }
+
+  const estimate = calculateKrCustoms({
+    usdKrw: rates.usdKrw,
+    isMinor: state.isMinor,
+    goods,
+    alcohol,
+    perfume,
+  });
+  const isExcluded = ({ status }: StoreSummary) =>
+    status === "invalid-price" ||
+    status === "before-refund-scheme" ||
+    status === "tax-rate-unknown";
+
+  return {
+    status: "ready",
+    result: state.hasRefundProof
+      ? estimate.withRefundProof
+      : estimate.withoutRefundProof,
+    dependsOnRefundProof: estimate.dependsOnRefundProof,
+    excludedStoreCount: stores.filter(isExcluded).length,
+    hasFood,
+    hasAlcohol: alcohol.length > 0,
+    hasPerfume: perfume.length > 0,
+  };
+}
+
 function summarizeRates(state: CalculatorState, today: IsoDate): RateSummary {
   const jpyPer100 = parseRateInput(state.jpyPer100Input);
   const usdKrw = parseRateInput(state.usdInput);
@@ -334,6 +463,9 @@ export function deriveSummary(
   const summary: CalculatorSummary = {
     feeValid: feePercent !== null,
     rates: summarizeRates(state, today),
+    customs: { status: "empty" },
+    netCostBeforeTaxKrw: 0,
+    netCostKrw: null,
     stores,
     totalPaidYen: 0,
     totalMaxRefundYen: 0,
@@ -358,5 +490,20 @@ export function deriveSummary(
     summary.totalExpectedRefundYen,
     jpyKrw,
   );
+  summary.netCostBeforeTaxKrw =
+    summary.totalPaidKrw - summary.totalExpectedRefundKrw;
+  summary.customs = summarizeCustoms(
+    state,
+    stores,
+    summary.rates,
+    feePercent ?? 0,
+  );
+  if (
+    summary.customs.status === "ready" &&
+    summary.customs.result.tax.status === "calculated"
+  ) {
+    summary.netCostKrw =
+      summary.netCostBeforeTaxKrw + summary.customs.result.tax.declaredKrw;
+  }
   return summary;
 }

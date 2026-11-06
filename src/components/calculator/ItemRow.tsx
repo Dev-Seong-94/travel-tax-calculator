@@ -1,6 +1,7 @@
 import {
   ITEM_CATEGORIES,
   formatYenInput,
+  isVolumeRequired,
   type ItemCategory,
   type ItemDraft,
 } from "@/state/calculator";
@@ -10,7 +11,10 @@ type ItemRowProps = {
   item: ItemDraft;
   position: number;
   invalid: boolean;
-  onChange: (changes: Partial<Pick<ItemDraft, "priceInput" | "category">>) => void;
+  invalidVolume: boolean;
+  onChange: (
+    changes: Partial<Pick<ItemDraft, "priceInput" | "category" | "mlInput">>,
+  ) => void;
   onRemove: () => void;
 };
 
@@ -18,6 +22,7 @@ export function ItemRow({
   item,
   position,
   invalid,
+  invalidVolume,
   onChange,
   onRemove,
 }: ItemRowProps) {
@@ -71,6 +76,30 @@ export function ItemRow({
       >
         삭제
       </button>
+      {isVolumeRequired(item.category) && (
+        <div className="col-span-2 sm:col-span-1">
+          <label className={labelClass} htmlFor={`${item.id}-ml`}>
+            품목 {position} 총 용량 (ml)
+          </label>
+          <input
+            id={`${item.id}-ml`}
+            className={fieldClass}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="예: 750"
+            value={item.mlInput}
+            aria-invalid={invalidVolume}
+            aria-describedby={invalidVolume ? `${item.id}-ml-error` : undefined}
+            onChange={(event) => onChange({ mlInput: event.target.value })}
+          />
+          {invalidVolume && (
+            <p id={`${item.id}-ml-error`} className="mt-1 text-sm text-danger">
+              용량은 1 이상의 정수로 입력해 주세요.
+            </p>
+          )}
+        </div>
+      )}
       {invalid && (
         <p id={errorId} className="col-span-full text-sm text-danger">
           0 이상 10억 엔 미만의 숫자로 입력해 주세요.
